@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    ports:
+      - "8080:8080/udp"
+    networks:
+      - mcp-moqt-network
+    environment:
+      - LOG_LEVEL=info
+
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+    networks:
+      - mcp-moqt-network
+    depends_on:
+      - server
+    environment:
+      - SERVER_ADDR=server:8080
+      - LOG_LEVEL=info
+
+networks:
+  mcp-moqt-network:
+    driver: bridge
