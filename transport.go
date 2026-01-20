@@ -6,7 +6,6 @@ package mcpmoqt
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -95,7 +94,7 @@ type moqtConn struct {
 
 	// Control tracks for bidirectional communication
 	clientToServerTrack *moqtransport.RemoteTrack
-	serverToClientTrack *moqtransport.LocalTrack
+	serverToClientPublisher moqtransport.Publisher
 
 	mu     sync.Mutex
 	closed bool
@@ -186,15 +185,19 @@ func (c *moqtConn) Write(ctx context.Context, msg jsonrpc.Message) error {
 	}
 
 	// Publish to client-to-server control track
-	// For now, we'll use a simple approach - in a full implementation,
-	// we'd need to manage the local track properly
-	namespace := append(c.controlTrackNamespace, c.sessionID, "control")
-	
-	// Create or get local track for client-to-server
-	// This is a simplified version - full implementation would cache the track
-	// TODO: Implement proper local track management
-	
-	return fmt.Errorf("write not fully implemented yet")
+	if c.serverToClientPublisher == nil {
+		return fmt.Errorf("client-to-server track not initialized")
+	}
+
+	// Use subgroup to write object
+	subgroup, err := c.serverToClientPublisher.OpenSubgroup(0, 0, 1) // priority 1 for control
+	if err != nil {
+		return fmt.Errorf("failed to open subgroup: %w", err)
+	}
+	defer subgroup.Close()
+
+	_, err = subgroup.WriteObject(0, data)
+	return err
 }
 
 // Close implements Connection.Close.
@@ -209,9 +212,9 @@ func (c *moqtConn) Close() error {
 	c.closed = true
 	close(c.done)
 
-	// Unsubscribe from tracks
+	// Close tracks
 	if c.clientToServerTrack != nil {
-		_ = c.clientToServerTrack.Unsubscribe()
+		_ = c.clientToServerTrack.Close()
 	}
 
 	return nil

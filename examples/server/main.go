@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"log"
 	"time"
 
@@ -84,5 +85,8 @@ func handleConnection(conn quic.Connection) {
 // In production, use proper certificates.
 func generateTLSConfig() *tls.Config {
 	// This is a placeholder - implement proper TLS config
-	return nil
+	// For testing, you would generate self-signed certificates
+	return &tls.Config{
+		InsecureSkipVerify: true, // Only for testing!
+	}
 }

@@ -82,7 +82,7 @@ func (t *MOQTClientTransport) discoverSessionID(ctx context.Context) (string, er
 	if err != nil {
 		return "", fmt.Errorf("failed to subscribe to discovery track: %w", err)
 	}
-	defer track.Unsubscribe()
+	defer track.Close()
 
 	// Read discovery response
 	obj, err := track.ReadObject(ctx)
@@ -114,8 +114,8 @@ type moqtClientConn struct {
 	incoming chan jsonrpc.Message
 
 	// Control tracks
-	clientToServerTrack *moqtransport.LocalTrack
-	serverToClientTrack *moqtransport.RemoteTrack
+	clientToServerPublisher moqtransport.Publisher
+	serverToClientTrack     *moqtransport.RemoteTrack
 
 	mu     sync.Mutex
 	closed bool
@@ -206,10 +206,23 @@ func (c *moqtClientConn) Write(ctx context.Context, msg jsonrpc.Message) error {
 	}
 
 	// Publish to client-to-server control track
-	// Note: In a full implementation, we would need to manage the local track
-	// and use Publisher interface to publish objects
-	// For v0.1.0, this is a placeholder
-	return fmt.Errorf("client write not fully implemented - requires local track management")
+	if c.clientToServerPublisher == nil {
+		return fmt.Errorf("client-to-server track not initialized")
+	}
+
+	// Use subgroup to write object
+	c.mu.Lock()
+	objectID := uint64(0) // In full implementation, increment per message
+	c.mu.Unlock()
+
+	subgroup, err := c.clientToServerPublisher.OpenSubgroup(0, 0, 1) // priority 1 for control
+	if err != nil {
+		return fmt.Errorf("failed to open subgroup: %w", err)
+	}
+	defer subgroup.Close()
+
+	_, err = subgroup.WriteObject(objectID, data)
+	return err
 }
 
 // Close implements Connection.Close.
@@ -224,9 +237,9 @@ func (c *moqtClientConn) Close() error {
 	c.closed = true
 	close(c.done)
 
-	// Unsubscribe from tracks
+	// Close tracks
 	if c.serverToClientTrack != nil {
-		_ = c.serverToClientTrack.Unsubscribe()
+		_ = c.serverToClientTrack.Close()
 	}
 
 	return nil

@@ -6,12 +6,8 @@ package mcpmoqt
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"io"
 	"sync"
 
-	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/mengelbart/moqtransport"
 )
 
@@ -60,12 +56,12 @@ func (h *MCPSubscribeHandler) HandleSubscribe(rw *moqtransport.SubscribeResponse
 			}
 		} else {
 			// Unknown track name
-			rw.Reject(moqtransport.ErrorCodeSubscribeNotFound, "unknown track")
+			rw.Reject(moqtransport.ErrorCodeSubscribeTrackDoesNotExist, "unknown track")
 			return
 		}
 	} else {
 		// Unknown namespace
-		rw.Reject(moqtransport.ErrorCodeSubscribeNotFound, "unknown namespace")
+		rw.Reject(moqtransport.ErrorCodeSubscribeTrackDoesNotExist, "unknown namespace")
 		return
 	}
 }
