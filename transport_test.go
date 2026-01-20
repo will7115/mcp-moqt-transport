@@ -5,9 +5,7 @@
 package mcpmoqt
 
 import (
-	"context"
 	"testing"
-	"time"
 )
 
 // TestTransportInterface tests that our transport implements the interface correctly.

@@ -29,6 +29,9 @@ type MOQTServerTransport struct {
 	// ControlTrackNamespace is the namespace for control tracks
 	ControlTrackNamespace []string
 
+	// SessionConnections maps session IDs to their connections
+	SessionConnections map[string]*moqtServerConn
+
 	mu sync.Mutex
 }
 
@@ -40,6 +43,7 @@ func NewMOQTServerTransport(session *moqtransport.Session) *MOQTServerTransport 
 		SessionID:             sessionID,
 		Namespace:             []string{"mcp"},
 		ControlTrackNamespace: []string{"mcp"},
+		SessionConnections:    make(map[string]*moqtServerConn),
 	}
 }
 
@@ -65,8 +69,16 @@ func (t *MOQTServerTransport) Connect(ctx context.Context) (Connection, error) {
 		done:                  make(chan struct{}),
 	}
 
+	// Register this connection in the session map
+	t.mu.Lock()
+	t.SessionConnections[t.SessionID] = conn
+	t.mu.Unlock()
+
 	// Initialize control tracks
 	if err := conn.initControlTracks(ctx); err != nil {
+		t.mu.Lock()
+		delete(t.SessionConnections, t.SessionID)
+		t.mu.Unlock()
 		return nil, fmt.Errorf("failed to initialize control tracks: %w", err)
 	}
 
@@ -171,4 +183,12 @@ func (c *moqtServerConn) Close() error {
 	close(c.done)
 
 	return nil
+}
+
+// getServerConnBySessionID retrieves a server connection by session ID.
+// This is a helper function for handlers to find the right connection.
+func getServerConnBySessionID(transport *MOQTServerTransport, sessionID string) *moqtServerConn {
+	transport.mu.Lock()
+	defer transport.mu.Unlock()
+	return transport.SessionConnections[sessionID]
 }

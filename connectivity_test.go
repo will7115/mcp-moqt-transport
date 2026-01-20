@@ -103,12 +103,27 @@ func runServer(t *testing.T, listener *quic.Listener) error {
 	// 创建MOQT连接
 	moqtConn := quicmoq.NewServer(conn)
 
+	// 创建MCP处理器
+	mcpHandler := &MCPHandler{
+		SessionIDGenerator: generateSessionID,
+	}
+	
+	// 创建订阅处理器
+	subscribeHandler := &MCPSubscribeHandler{}
+	
 	// 创建MOQT会话
 	session := &moqtransport.Session{
-		Handler:             &MCPHandler{},
-		SubscribeHandler:    &MCPSubscribeHandler{},
+		Handler:             mcpHandler,
+		SubscribeHandler:    subscribeHandler,
 		InitialMaxRequestID: 100,
 	}
+	
+	// 创建传输（这会生成sessionID）
+	transport := NewMOQTServerTransport(session)
+	
+	// 现在关联handler和transport
+	mcpHandler.Transport = transport
+	subscribeHandler.Transport = transport
 
 	// 在goroutine中运行会话
 	sessionErr := make(chan error, 1)
@@ -132,9 +147,6 @@ func runServer(t *testing.T, listener *quic.Listener) error {
 	case err := <-sessionErr:
 		return fmt.Errorf("会话启动失败: %w", err)
 	}
-
-	// 创建MCP over MOQT服务器传输
-	transport := NewMOQTServerTransport(session)
 
 	// 连接到传输
 	mcpConn, err := transport.Connect(ctx)
@@ -184,10 +196,18 @@ func runClient(t *testing.T, serverAddr string) error {
 	// 创建MOQT连接
 	moqtConn := quicmoq.NewClient(conn)
 
+	// 创建MCP处理器
+	mcpHandler := &MCPHandler{
+		SessionIDGenerator: generateSessionID,
+	}
+	
+	// 创建订阅处理器
+	subscribeHandler := &MCPSubscribeHandler{}
+	
 	// 创建MOQT会话
 	session := &moqtransport.Session{
-		Handler:             &MCPHandler{},
-		SubscribeHandler:    &MCPSubscribeHandler{},
+		Handler:             mcpHandler,
+		SubscribeHandler:    subscribeHandler,
 		InitialMaxRequestID: 100,
 	}
 

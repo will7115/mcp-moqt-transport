@@ -75,12 +75,13 @@ func (t *MOQTClientTransport) Connect(ctx context.Context) (Connection, error) {
 }
 
 // discoverSessionID discovers the session ID from the server using the discovery track.
+// According to the draft, clients should use FETCH (not Subscribe) for discovery.
 func (t *MOQTClientTransport) discoverSessionID(ctx context.Context) (string, error) {
-	// Subscribe to discovery track
+	// Use FETCH to access discovery track (as per draft specification)
 	namespace := []string{"mcp", "discovery"}
-	track, err := t.Session.Subscribe(ctx, namespace, "sessions")
+	track, err := t.Session.Fetch(ctx, namespace, "sessions")
 	if err != nil {
-		return "", fmt.Errorf("failed to subscribe to discovery track: %w", err)
+		return "", fmt.Errorf("failed to fetch discovery track: %w", err)
 	}
 	defer track.Close()
 
