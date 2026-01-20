@@ -2,6 +2,18 @@
 
 MCP over MOQT Transport 是一个实现了 Model Context Protocol (MCP) over Media over QUIC Transport (MOQT) 的 Go 语言传输层实现。
 
+## 开发说明
+
+本项目使用 [Cursor](https://cursor.sh/) 进行快速原型开发和思路验证。使用 Cursor 编写代码的目的是为了**快速验证开发思路和架构设计**，**不代表代码本身的开发质量情况**。
+
+我们的团队承诺将**持续依据 IETF 草案独立进行标准化开发**，确保代码质量、性能优化、安全性以及符合相关标准规范。后续开发将遵循标准的软件工程实践，包括但不限于：
+
+- 完整的单元测试和集成测试
+- 代码审查和质量保证流程
+- 性能优化和安全性审计
+- 完整的文档和示例代码
+- 符合 IETF 草案规范的实现
+
 ## 概述
 
 本项目实现了 [draft-jennings-mcp-over-moqt-00](https://datatracker.ietf.org/doc/draft-jennings-mcp-over-moqt/) 草案中定义的 MCP over MOQT 传输协议，将 MCP 消息映射到 MOQT 对象，实现高效的发布-订阅通信。
