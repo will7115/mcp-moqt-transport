@@ -28,7 +28,7 @@ MCP over MOQT Transport 是一个实现了 Model Context Protocol (MCP) over Med
 
 ## 版本
 
-当前版本: v0.1.0
+当前版本: v0.1.1
 
 ## 安装
 
@@ -38,85 +38,116 @@ go get github.com/mcp-moqt/mcp-moqt-transport
 
 ## 使用示例
 
-### 服务器端
+### 服务器端（QUIC + MOQT + MCP）
 
 ```go
 package main
 
 import (
     "context"
+    "log"
+
     "github.com/mcp-moqt/mcp-moqt-transport"
-    "github.com/mengelbart/moqtransport"
+    "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 func main() {
-    // 创建 MOQT 会话
-    session := &moqtransport.Session{
-        // 配置会话
-    }
-    
-    // 创建 MCP over MOQT 服务器传输
-    transport := mcpmoqt.NewMOQTServerTransport(session)
-    
-    // 连接到传输
-    conn, err := transport.Connect(context.Background())
+    ctx := context.Background()
+
+    // 1. 准备 TLS（示例使用内存自签名证书，仅适合本地测试）
+    tlsCfg, err := mcpmoqt.SelfSignedTLSServerConfig()
     if err != nil {
-        // 处理错误
+        log.Fatalf("tls: %v", err)
     }
-    
-    // 使用连接进行 MCP 通信
-    // ...
+
+    // 2. 通过选项（options）创建基于 QUIC 的 MOQT 传输
+    transport, err := mcpmoqt.NewMOQTServerTransport(
+        mcpmoqt.WithAddr("127.0.0.1:8080"),
+        mcpmoqt.WithTLSServerConfig(tlsCfg),
+    )
+    if err != nil {
+        log.Fatalf("new transport: %v", err)
+    }
+
+    // 3. 创建 MCP 服务器并直接使用 Run 运行
+    server := mcp.NewServer(&mcp.Implementation{
+        Name:    "example-server",
+        Version: "v0.1.1",
+    }, nil)
+
+    if err := server.Run(ctx, transport); err != nil {
+        log.Fatalf("server run: %v", err)
+    }
 }
 ```
 
-### 客户端
+### 客户端（连接服务器并执行 MCP 调用）
 
 ```go
 package main
 
 import (
     "context"
+    "log"
+
     "github.com/mcp-moqt/mcp-moqt-transport"
-    "github.com/mengelbart/moqtransport"
+    "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 func main() {
-    // 创建 MOQT 会话
-    session := &moqtransport.Session{
-        // 配置会话
-    }
-    
-    // 创建 MCP over MOQT 客户端传输
-    transport := mcpmoqt.NewMOQTClientTransport(session)
-    
-    // 连接到传输
-    conn, err := transport.Connect(context.Background())
+    ctx := context.Background()
+
+    // 1. 通过选项创建客户端传输（内部完成 QUIC + MOQT Session 建立）
+    transport, err := mcpmoqt.NewMOQTClientTransport(
+        mcpmoqt.WithAddr("127.0.0.1:8080"),
+    )
     if err != nil {
-        // 处理错误
+        log.Fatalf("new client transport: %v", err)
     }
-    
-    // 使用连接进行 MCP 通信
-    // ...
+
+    // 2. 创建 MCP 客户端
+    client := mcp.NewClient(&mcp.Implementation{
+        Name:    "example-client",
+        Version: "v0.1.1",
+    }, nil)
+
+    // 3. 通过 MCP 的 Connect 建立会话
+    session, err := client.Connect(ctx, transport, nil)
+    if err != nil {
+        log.Fatalf("client connect: %v", err)
+    }
+    defer session.Close()
+
+    // 4. 做一次 ping 验证链路
+    if err := session.Ping(ctx, nil); err != nil {
+        log.Fatalf("ping: %v", err)
+    }
 }
 ```
 
 ## 测试
 
-### 本地连通性测试
+### 本地端到端 MCP 测试
 
-运行本地网络连通性测试，验证QUIC和MOQT连接是否正常：
+当前版本提供了一个端到端测试，用于验证：
+
+- QUIC 监听 / 拨号是否正常
+- MOQT Session 是否能正确建立
+- 会话发现（discovery / Fetch）是否工作
+- MCP `Server.Run` / `Client.Connect` 能否在 MOQT 之上跑通 `Ping`
+
+运行：
 
 ```bash
-go test -v -run TestLocalConnectivity ./...
+go test -v -run TestMCPServerClient_RunAndPing ./...
 ```
 
-这个测试会：
-- 创建一个QUIC服务器监听器
-- 客户端连接到服务器
-- 建立MOQT会话
-- 验证基本的网络连通性
+该测试会：
 
-**注意**：客户端连接传输可能会失败（因为v0.1.0的会话发现机制还未完全实现），但这不影响连通性测试的目的 - 它验证了QUIC和MOQT层面的连接是正常的。
+- 随机选择本地端口
+- 启动基于 `NewMOQTServerTransport` 的 MCP 服务器
+- 使用 `NewMOQTClientTransport` 连接服务器
+- 完成一次 `Ping` 调用并验证无错误返回
 
 ### 运行所有测试
 
@@ -134,28 +165,36 @@ docker-compose up --build
 
 ```
 mcp-moqt-transport/
-├── transport.go      # 基础传输接口和实现
-├── server.go         # 服务器端传输实现
-├── client.go         # 客户端传输实现
-├── handler.go        # MOQT 消息处理器
-├── examples/         # 示例代码
-├── tests/            # 测试文件
-└── README.md         # 项目文档
+├── transport.go        # MCP over MOQT 的公共接口与兼容层
+├── server.go           # 服务器端传输实现（基于 options + 内部 QUIC/MOQT Session）
+├── client.go           # 客户端传输实现（基于 options + discovery）
+├── options.go          # 传输配置（addr、QUIC/TLS、ALPN 等）
+├── tls.go              # 本地测试用 TLS 自签名配置
+├── quic_moq.go         # QUIC <-> moqtransport 适配（quic-go / quicmoq）
+├── control_conn.go     # MCP Connection 封装（基于控制轨道的 JSON-RPC）
+├── session_handlers.go # MOQT Handler / SubscribeHandler / discovery 处理
+├── session_id.go       # MCP Session ID 生成
+├── examples/           # 服务端 / 客户端示例
+├── connectivity_test.go# 端到端 MCP 测试（Run + Ping）
+└── README.md           # 项目文档
 ```
 
 ## 开发状态
 
-当前版本 (v0.1.0) 实现了基本的传输层功能：
+当前版本 (v0.1.1) 实现了基本的传输层功能：
 
-- [x] Transport 和 Connection 接口实现
-- [x] MCP 消息到 MOQT 对象的映射
-- [x] 控制轨道的基本实现
-- [x] 会话发现机制
-- [ ] 完整的资源轨道支持
-- [ ] 工具轨道支持
-- [ ] 提示轨道支持
-- [ ] 通知轨道支持
-- [ ] 完整的错误处理
+- [x] Transport 和 Connection 接口适配 MCP go-sdk（直接作为 `mcp.Transport` 使用）
+- [x] MCP 消息到 MOQT 对象的映射（1 MCP message = 1 MOQT object/group）
+- [x] 控制轨道（control tracks）的基本实现：
+  - 命名空间：`["mcp", <session-id>, "control"]`
+  - 轨道：`client-to-server` / `server-to-client`
+- [x] 会话发现机制（`mcp/discovery` + `sessions` track，基于 FETCH）
+- [x] 基于 QUIC + TLS 的端到端连通性测试（`TestMCPServerClient_RunAndPing`）
+- [x] 基于 options 的传输构造（`WithAddr` / `WithTLSServerConfig` / `WithTLSClientConfig` / `WithQUICConfig`）
+- [ ] 草案中描述的资源轨道（resources tracks）完整支持
+- [ ] 工具轨道、提示轨道、通知轨道等专用 track 的拆分与流控策略
+- [ ] 多会话 / 多命名空间场景下的 track 布局与路由
+- [ ] 更细致的错误码映射与恢复策略（与 IETF 草案 error model 对齐）
 
 ## 许可证
 

@@ -12,37 +12,19 @@ import (
 	"sync"
 
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/mengelbart/moqtransport"
 )
 
 // ErrConnectionClosed is returned when sending a message to a connection that
 // is closed or in the process of closing.
-var ErrConnectionClosed = errors.New("connection closed")
+var ErrConnectionClosed = mcp.ErrConnectionClosed
 
-// Transport is the interface for MCP over MOQT transport.
-// It creates connections that communicate over MOQT sessions.
-type Transport interface {
-	// Connect returns a logical JSON-RPC connection over MOQT.
-	Connect(ctx context.Context) (Connection, error)
-}
+// Transport re-exports the MCP SDK Transport interface.
+type Transport = mcp.Transport
 
-// Connection is a logical bidirectional JSON-RPC connection over MOQT.
-type Connection interface {
-	// Read reads the next message to process off the connection.
-	// Connections must allow Read to be called concurrently with Close.
-	Read(context.Context) (jsonrpc.Message, error)
-
-	// Write writes a new message to the connection.
-	// Write may be called concurrently.
-	Write(context.Context, jsonrpc.Message) error
-
-	// Close closes the connection.
-	// Close may be called multiple times, potentially concurrently.
-	Close() error
-
-	// SessionID returns the MCP session ID for this connection.
-	SessionID() string
-}
+// Connection re-exports the MCP SDK Connection interface.
+type Connection = mcp.Connection
 
 // MOQTTransport is a transport that communicates over MOQT.
 type MOQTTransport struct {

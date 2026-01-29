@@ -2,17 +2,37 @@
 // Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file.
 
-// Example server implementation for MCP over MOQT
-// This is a placeholder example - full implementation requires proper QUIC setup
 package main
 
 import (
+	"context"
+	"flag"
 	"log"
+
+	mcpmoqt "github.com/mcp-moqt/mcp-moqt-transport"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 func main() {
-	log.Println("MCP over MOQT server example")
-	log.Println("This is a placeholder - see README.md for usage instructions")
-	// TODO: Implement full server example with QUIC listener
-	// See moqtransport/examples/date for reference implementation
+	addr := flag.String("addr", "127.0.0.1:8080", "listen address")
+	flag.Parse()
+
+	tlsCfg, err := mcpmoqt.SelfSignedTLSServerConfig()
+	if err != nil {
+		log.Fatalf("tls config: %v", err)
+	}
+
+	transport, err := mcpmoqt.NewMOQTServerTransport(
+		mcpmoqt.WithAddr(*addr),
+		mcpmoqt.WithTLSServerConfig(tlsCfg),
+	)
+	if err != nil {
+		log.Fatalf("transport: %v", err)
+	}
+
+	server := mcp.NewServer(&mcp.Implementation{Name: "moqt-mcp-server", Version: "v0.0.1"}, nil)
+	log.Printf("listening on %s (MOQT/QUIC)", *addr)
+	if err := server.Run(context.Background(), transport); err != nil {
+		log.Fatalf("server run: %v", err)
+	}
 }
