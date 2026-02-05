@@ -26,6 +26,10 @@ func NewMOQTClientTransport(opts ...Option) (*MOQTClientTransport, error) {
 	return &MOQTClientTransport{cfg: cfg}, nil
 }
 
+// Draft: draft-jennings-mcp-over-moqt-00 §2
+// MCP messages are mapped onto MOQT objects via control tracks.
+// NOTE: This implementation targets moqtransport (draft-11, moq-00).
+// It is not wire-compatible with draft-16 stream/datagram encodings.
 // Connect implements the Transport interface for client.
 func (t *MOQTClientTransport) Connect(ctx context.Context) (Connection, error) {
 	moqConn, _, err := dialMOQT(ctx, t.cfg)

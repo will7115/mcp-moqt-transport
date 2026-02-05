@@ -19,9 +19,6 @@ func TestMCPServerClient_RunAndPing(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 
-	tlsServer, err := SelfSignedTLSServerConfig()
-	require.NoError(t, err)
-
 	// Pick an ephemeral port by binding UDP first.
 	udpAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:0")
 	require.NoError(t, err)
@@ -32,19 +29,20 @@ func TestMCPServerClient_RunAndPing(t *testing.T) {
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 
-	serverTransport, err := NewMOQTServerTransport(
-		WithAddr(addr),
-		WithTLSServerConfig(tlsServer),
-	)
-	require.NoError(t, err)
-
-	clientTransport, err := NewMOQTClientTransport(
+	serverTransport, err := NewMoqTransport(
+		RoleServer,
 		WithAddr(addr),
 	)
 	require.NoError(t, err)
 
-	server := mcp.NewServer(&mcp.Implementation{Name: "server", Version: "v0.0.1"}, nil)
-	client := mcp.NewClient(&mcp.Implementation{Name: "client", Version: "v0.0.1"}, nil)
+	clientTransport, err := NewMoqTransport(
+		RoleClient,
+		WithAddr(addr),
+	)
+	require.NoError(t, err)
+
+	server := mcp.NewServer(&mcp.Implementation{Name: "server", Version: "v0.1.2"}, nil)
+	client := mcp.NewClient(&mcp.Implementation{Name: "client", Version: "v0.1.2"}, nil)
 
 	serverErr := make(chan error, 1)
 	go func() {

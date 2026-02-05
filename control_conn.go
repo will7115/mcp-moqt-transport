@@ -6,12 +6,19 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/mengelbart/moqtransport"
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/mengelbart/moqtransport"
 )
 
-// Draft §2.2.1: namespace: (mcp, <session-id>, control), tracks: client-to-server, server-to-client.
+// Draft: draft-jennings-mcp-over-moqt-00 §2.2.1
+// Control tracks: namespace "mcp/<session-id>/control", tracks:
+//   - client-to-server
+//   - server-to-client
+//
+// This implementation maps MCP JSON-RPC to MOQT objects on these tracks.
+// NOTE: This implementation targets moqtransport (draft-11, moq-00).
+// It is not wire-compatible with draft-16 stream/datagram encodings.
 const (
 	controlNS0 = "mcp"
 	controlNS2 = "control"
@@ -75,15 +82,15 @@ type controlConn struct {
 }
 
 func newControlConn(conn moqtransport.Connection, sessionID string, recv *moqtransport.RemoteTrack, send *publisherSlot) *controlConn {
-	readCtx, cancel := context.WithCancel(context.Background())
+	readCtx, cancel := context.WithCancel(conn.Context())
 	return &controlConn{
-		conn:      conn,
-		sessionID: sessionID,
-		recv:      recv,
-		send:      send,
-		readCtx:   readCtx,
+		conn:       conn,
+		sessionID:  sessionID,
+		recv:       recv,
+		send:       send,
+		readCtx:    readCtx,
 		cancelRead: cancel,
-		done:      make(chan struct{}),
+		done:       make(chan struct{}),
 	}
 }
 
@@ -163,4 +170,3 @@ func (c *controlConn) Close() error {
 	})
 	return nil
 }
-

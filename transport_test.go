@@ -47,3 +47,25 @@ func TestReadWrite(t *testing.T) {
 	// This test would require a full MOQT session setup
 	t.Skip("Requires full MOQT session setup")
 }
+
+func TestNewMoqTransportRoles(t *testing.T) {
+	serverTransport, err := NewMoqTransport(RoleServer)
+	if err != nil {
+		t.Fatalf("new server transport: %v", err)
+	}
+	if serverTransport == nil {
+		t.Fatal("server transport is nil")
+	}
+
+	clientTransport, err := NewMoqTransport(RoleClient)
+	if err != nil {
+		t.Fatalf("new client transport: %v", err)
+	}
+	if clientTransport == nil {
+		t.Fatal("client transport is nil")
+	}
+
+	if _, err := NewMoqTransport(Role(99)); err == nil {
+		t.Fatal("expected error for unknown role")
+	}
+}

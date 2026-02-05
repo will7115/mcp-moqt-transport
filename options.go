@@ -72,6 +72,7 @@ func WithTLSClientConfig(cfg *tls.Config) Option {
 }
 
 func applyOptions(role transportRole, opts []Option) (*transportConfig, error) {
+	// Defaults: addr localhost:0, ALPN moq-00, QUIC datagrams enabled.
 	cfg := &transportConfig{
 		role:       role,
 		addr:       "localhost:0",
@@ -91,4 +92,3 @@ func applyOptions(role transportRole, opts []Option) (*transportConfig, error) {
 	}
 	return cfg, nil
 }
-

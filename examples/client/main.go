@@ -16,14 +16,15 @@ func main() {
 	timeout := flag.Duration("timeout", 5*time.Second, "connect timeout")
 	flag.Parse()
 
-	transport, err := mcpmoqt.NewMOQTClientTransport(
+	transport, err := mcpmoqt.NewMoqTransport(
+		mcpmoqt.RoleClient,
 		mcpmoqt.WithAddr(*addr),
 	)
 	if err != nil {
 		log.Fatalf("transport: %v", err)
 	}
 
-	client := mcp.NewClient(&mcp.Implementation{Name: "moqt-mcp-client", Version: "v0.0.1"}, nil)
+	client := mcp.NewClient(&mcp.Implementation{Name: "moqt-mcp-client", Version: "v0.1.2"}, nil)
 
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
@@ -40,4 +41,3 @@ func main() {
 
 	log.Printf("connected to %s; ping ok", *addr)
 }
-

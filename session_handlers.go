@@ -9,6 +9,14 @@ import (
 	"github.com/mengelbart/moqtransport"
 )
 
+// Draft: draft-jennings-mcp-over-moqt-00 §2.2.1
+// Control tracks: namespace "mcp/<session-id>/control", tracks:
+//   - client-to-server
+//   - server-to-client
+//
+// This implementation maps MCP JSON-RPC to MOQT objects on these tracks.
+// NOTE: This implementation targets moqtransport (draft-11, moq-00).
+// It is not wire-compatible with draft-16 stream/datagram encodings.
 // subscribeHandler accepts subscriptions to the local send track and exposes a Publisher via slot.
 type subscribeHandler struct {
 	sessionID string
@@ -41,6 +49,11 @@ func (h *subscribeHandler) HandleSubscribe(rw *moqtransport.SubscribeResponseWri
 	h.sendSlot.set(rw)
 }
 
+// Draft: draft-jennings-mcp-over-moqt-00 §2.2.x (discovery)
+// Discovery is implemented via FETCH on "mcp/discovery/sessions".
+// Response contains session_id and available control tracks.
+// TODO (Draft: draft-jennings-mcp-over-moqt-00 §2.3/§2.4):
+// Reserve tracks for resources/tools/notifications. Not implemented in v0.1.2.
 // discoveryHandler implements the server-side FETCH "mcp/discovery" "sessions".
 type discoveryHandler struct {
 	sessionID string
@@ -77,7 +90,7 @@ func (h *discoveryHandler) handleDiscoveryFetch(rw moqtransport.ResponseWriter) 
 			"session_id": h.sessionID,
 			"server_info": map[string]any{
 				"name":             "mcp-moqt-transport",
-				"version":          "0.1.0",
+				"version":          "0.1.2",
 				"protocol_version": "2025-06-18",
 			},
 			"available_tracks": map[string]any{
@@ -114,10 +127,10 @@ func runSession(ctx context.Context, s *moqtransport.Session, conn moqtransport.
 	if err := s.Run(conn); err != nil {
 		return err
 	}
-	// Keep the session alive until ctx is done.
+	// Close the session when ctx is done.
 	go func() {
 		<-ctx.Done()
+		_ = s.Close()
 	}()
 	return nil
 }
-

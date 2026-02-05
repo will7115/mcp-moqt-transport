@@ -35,6 +35,9 @@ func listenAndAcceptMOQT(ctx context.Context, cfg *transportConfig) (moqtranspor
 	// Single-connection transport for MCP Run/Connect: close listener after accept.
 	_ = listener.Close()
 
+	// MOQT draft-11 (moq-00): QUIC ALPN must be "moq-00".
+	// NOTE: This implementation targets moqtransport (draft-11, moq-00).
+	// It is not wire-compatible with draft-16 stream/datagram encodings.
 	if conn.ConnectionState().TLS.NegotiatedProtocol == "" {
 		_ = conn.CloseWithError(0, "")
 		return nil, nil, nil, fmt.Errorf("quic negotiated empty ALPN")
@@ -55,6 +58,9 @@ func dialMOQT(ctx context.Context, cfg *transportConfig) (moqtransport.Connectio
 	if err != nil {
 		return nil, nil, fmt.Errorf("quic dial: %w", err)
 	}
+	// MOQT draft-11 (moq-00): QUIC ALPN must be "moq-00".
+	// NOTE: This implementation targets moqtransport (draft-11, moq-00).
+	// It is not wire-compatible with draft-16 stream/datagram encodings.
 	if conn.ConnectionState().TLS.NegotiatedProtocol == "" {
 		_ = conn.CloseWithError(0, "")
 		return nil, nil, fmt.Errorf("quic negotiated empty ALPN")
@@ -65,4 +71,3 @@ func dialMOQT(ctx context.Context, cfg *transportConfig) (moqtransport.Connectio
 	}
 	return moqConnWithAddr{Connection: quicmoq.NewClient(conn), remoteAddr: conn.RemoteAddr()}, conn.RemoteAddr(), nil
 }
-
