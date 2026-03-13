@@ -56,7 +56,7 @@ func TestNewMoqTransportRoles(t *testing.T) {
 	if serverTransport == nil {
 		t.Fatal("server transport is nil")
 	}
-
+// === 测试客户端角色 (RoleClient) ===
 	clientTransport, err := NewMoqTransport(RoleClient)
 	if err != nil {
 		t.Fatalf("new client transport: %v", err)
